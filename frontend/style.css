@@ -687,4 +687,36 @@ footer a.text-muted:hover {
     width: 100%;
 }
 
+/* =========================================
+   SPECIAL NAV LINK OFERTA HIGHLIGHT
+========================================= */
+.nav-link-oferta {
+    background: linear-gradient(135deg, #ff4757, #ff6b81) !important;
+    color: white !important;
+    padding: 6px 15px !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4) !important;
+    font-weight: 800 !important;
+    display: inline-block !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    animation: pulseGlow 2s infinite alternate;
+}
 
+.nav-link-oferta:hover {
+    transform: translateY(-2px) scale(1.05) !important;
+    box-shadow: 0 6px 16px rgba(255, 71, 87, 0.6) !important;
+    background: linear-gradient(135deg, #ff6b81, #ff4757) !important;
+}
+
+.nav-link-oferta::after {
+    display: none !important; /* Desactiva el subrayado normal */
+}
+
+@keyframes pulseGlow {
+    0% {
+        box-shadow: 0 0 5px rgba(255, 71, 87, 0.4), 0 4px 12px rgba(255, 71, 87, 0.4);
+    }
+    100% {
+        box-shadow: 0 0 15px rgba(255, 71, 87, 0.8), 0 4px 12px rgba(255, 71, 87, 0.4);
+    }
+}
