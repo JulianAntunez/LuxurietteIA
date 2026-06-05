@@ -376,19 +376,24 @@ async function pay() {
 // --- 5. INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
    
+  // --- Inicialización del Modal de Edad con Validación Preventiva ---
   let myModal;
-  if (localStorage.getItem('ageVerified') !== 'yes') {
-    // Muestra el modal al cargar la página
-    myModal = new bootstrap.Modal(document.getElementById('ageVerificationModal'));
-    myModal.show();
+  const modalEl = document.getElementById('ageVerificationModal');
+  if (modalEl && typeof bootstrap !== 'undefined') {
+    if (localStorage.getItem('ageVerified') !== 'yes') {
+      myModal = new bootstrap.Modal(modalEl);
+      myModal.show();
+    }
   }
 
   // Al hacer clic en "Sí, soy mayor"
-  document.getElementById('btnAdulto').addEventListener('click', function() {
-    localStorage.setItem('ageVerified', 'yes'); // Guarda la confirmación
-    if (myModal) myModal.hide(); // Oculta el modal solo si está definido
-    // Si usas WordPress, podrías tener un plugin que reaccione a esto, o podrías redirigir/cargar contenido principal aquí
-  });
+  const btnAdulto = document.getElementById('btnAdulto');
+  if (btnAdulto) {
+    btnAdulto.addEventListener('click', function() {
+      localStorage.setItem('ageVerified', 'yes'); // Guarda la confirmación
+      if (myModal) myModal.hide(); // Oculta el modal solo si está definido
+    });
+  }
 
   // Al hacer clic en "No, soy menor"
   document.getElementById('btnMenor').addEventListener('click', function() {
