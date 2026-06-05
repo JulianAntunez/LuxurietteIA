@@ -119,7 +119,7 @@ app.post('/api/pay', async (req, res) => {
             })),
             back_urls: {
                 // USAMOS URLS MANUALES CON HTTPS PARA EVITAR EL ERROR invalid_auto_return
-                success: "https://luxuriette.onrender.com/success.html",
+                success: "https://luxuriette.onrender.com/pages/success.html",
                 failure: "https://luxuriette.onrender.com/index.html",
                 pending: "https://luxuriette.onrender.com/index.html",
             },
