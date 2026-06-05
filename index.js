@@ -128,6 +128,7 @@ app.post('/api/pay', async (req, res) => {
                 failure: `${baseUrl}/index.html`,
                 pending: `${baseUrl}/index.html`,
             },
+            notification_url: `${baseUrl}/webhook`,
             auto_return: "approved",
             external_reference: JSON.stringify({
                 idVenta: idVentaUnico,
