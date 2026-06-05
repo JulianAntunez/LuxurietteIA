@@ -29,8 +29,7 @@ function add(productId, price) {
         total += price;
         saveCart();
         updateCartDisplay();
-    } else {
-        window.alert("No hay suficiente stock para agregar este producto.");
+        displayProducts(); // Actualizar interfaz para deshabilitar botón si se quedó en 0 stock
     }
 }
 
@@ -168,7 +167,7 @@ async function fetchProducts(type) {
         if (type === 'ofertas') url = '/api/ofertas';
         
         const resType = await fetch(url);
-        productList = (await resType.json()).filter(p => p.Stock > 0);
+        productList = await resType.json();
 
         // Descontar del stock visual lo que ya tenemos agregado en el carrito al cargar la página
         carrito.forEach(cartItem => {
@@ -177,9 +176,6 @@ async function fetchProducts(type) {
                 p.Stock = Math.max(0, p.Stock - (cartItem.quantity || 1));
             }
         });
-
-        // Filtrar productos que quedaron con stock > 0
-        productList = productList.filter(p => p.Stock > 0);
 
         displayProducts();
     } catch (error) { console.error('Error:', error); }
@@ -239,6 +235,10 @@ function renderProducts(lista) {
             ? `<h5 style="text-decoration: line-through; color: #a4b0be; margin: 0; font-size: 14px;">$ ${precioBase.toFixed(2)}</h5><h1 style="color: var(--accent-cyan); margin: 0;">$ ${precioFinal.toFixed(2)}</h1>`
             : `<h1>$ ${precioFinal.toFixed(2)}</h1>`;
 
+        const buttonHtml = p.Stock > 0 
+            ? `<button class="button-add" style="margin-top: 10px;" onclick="add('${p.Id}', ${precioFinal})">Agregar</button>`
+            : `<button class="button-add-disabled" style="margin-top: 10px;" disabled>Sin Stock</button>`;
+
         html += `
             <div class="product-container" id="product-${p.Id}">
                 <h3>${p.Producto || 'Sin nombre'}</h3>
@@ -253,7 +253,7 @@ function renderProducts(lista) {
                 </div>
                 <div class="product-footer">
                     ${precioHtml}
-                    <button class="button-add" style="margin-top: 10px;" onclick="add('${p.Id}', ${precioFinal})">Agregar</button>
+                    ${buttonHtml}
                 </div>
             </div>`;
     });
