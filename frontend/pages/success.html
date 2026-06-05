@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡Gracias por tu compra! - Luxuriette</title>
+ <style>
+        .success-container {
+            max-width: 600px;
+            margin: 100px auto;
+            text-align: center;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            border-radius: 15px;
+            border: 1px solid #ff00ff;
+        }
+        .btn-ws {
+            background-color: #25d366;
+            color: white;
+            padding: 15px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+    <link href="../style.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="success-container">
+        <h1>✨ ¡Pago Exitoso! ✨</h1>
+        <p>Gracias por confiar en <strong>Luxuriette</strong>.</p>
+        <p>Tu pago ha sido procesado correctamente.</p>
+        
+        <div id="order-info">
+            </div>
+
+        <a href="#" id="whatsapp-confirm" class="btn-ws">
+            Confirmar pedido por WhatsApp 📱
+        </a>
+
+        <br><br>
+        <a href="index.html" style="color: #ccc;">Volver a la tienda</a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Obtener datos del pago de la URL (Mercado Pago los envía por GET)
+            const urlParams = new URLSearchParams(window.location.search);
+            const paymentId = urlParams.get('payment_id');
+            const status = urlParams.get('status');
+
+            if (status === 'approved') {
+                document.getElementById('order-info').innerHTML = `
+                    <p style="color: #00ff00;">ID de Operación: ${paymentId}</p>
+                `;
+
+                // 2. Limpiar el carrito localmente
+                localStorage.removeItem("cart");
+
+                // 3. Configurar el botón de WhatsApp
+                const wsButton = document.getElementById('whatsapp-confirm');
+                const mensaje = `¡Hola! Acabo de realizar un pago en el sitio. ID de operación: ${paymentId}.`;
+                wsButton.href = `https://wa.me/5493757677266?text=${encodeURIComponent(mensaje)}`;
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+
+
