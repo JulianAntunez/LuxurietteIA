@@ -109,6 +109,11 @@ app.post('/api/pay', async (req, res) => {
         const idVentaUnico = "MP-" + Date.now();
         const preference = new Preference(client);
 
+        // Generar URL base dinámica según el host que realiza la petición
+        const protocol = req.headers.referer ? req.headers.referer.split(':')[0] : 'https';
+        const host = req.headers.host;
+        const baseUrl = `${protocol}://${host}`;
+
         const body = {
             items: carrito.map(item => ({
                 id: String(item.id),
@@ -118,10 +123,10 @@ app.post('/api/pay', async (req, res) => {
                 currency_id: 'ARS'
             })),
             back_urls: {
-                // USAMOS URLS MANUALES CON HTTPS PARA EVITAR EL ERROR invalid_auto_return
-                success: "https://luxuriette.onrender.com/pages/success.html",
-                failure: "https://luxuriette.onrender.com/index.html",
-                pending: "https://luxuriette.onrender.com/index.html",
+                // USAMOS URLS DINÁMICAS SEGÚN EL ENTORNO (localhost, Render pruebas o producción)
+                success: `${baseUrl}/pages/success.html`,
+                failure: `${baseUrl}/index.html`,
+                pending: `${baseUrl}/index.html`,
             },
             auto_return: "approved",
             external_reference: JSON.stringify({
