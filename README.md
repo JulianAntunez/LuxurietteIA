@@ -77,6 +77,10 @@ A continuación se detallan las modificaciones realizadas para optimizar y asegu
   - Al recargar la página, se recupera el número de página actual directamente desde la URL.
   - Se añadió soporte para `popstate` para sincronizar las vistas si el usuario usa los botones de navegación Atrás/Adelante del navegador.
 
+### 18. Ocultación de Productos sin Stock en el Catálogo
+- **Problema:** Los productos agotados en Google Sheets (Stock <= 0) seguían mostrándose en la tienda, ocupando espacio visual con un botón deshabilitado que impedía su compra.
+- **Solución:** Se añadió un filtro dinámico en `fetchProducts` (`script.js`) para excluir de la lista principal a todos los productos cuyo stock de base de datos sea menor o igual a 0.
+
 ## Futuras Consideraciones Recomendadas
 - **Base de Datos Transaccional:** Google Sheets no soporta transacciones (bloqueos de fila). Si la tienda crece y hay muchas compras simultáneas, dos personas podrían intentar comprar la misma unidad exacta al mismo tiempo y generarse inconsistencias. A futuro se recomienda migrar a una base de datos como PostgreSQL, MongoDB o MySQL.
 - **Validación Estricta con Joi:** Implementar `joi` (el cual ya está instalado en las dependencias) para validar estructuradamente el carrito de compras (`req.body`) y garantizar que los precios e IDs no puedan ser manipulados de manera maliciosa por un cliente modificado.

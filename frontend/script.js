@@ -185,7 +185,10 @@ async function fetchProducts(type) {
         if (type === 'ofertas') url = '/api/ofertas';
         
         const resType = await fetch(url);
-        productList = await resType.json();
+        const rawProducts = await resType.json();
+
+        // Ocultar productos sin stock de la lista principal
+        productList = rawProducts.filter(p => Number(p.Stock) > 0);
 
         // Descontar del stock visual lo que ya tenemos agregado en el carrito al cargar la página
         carrito.forEach(cartItem => {
