@@ -170,6 +170,13 @@ app.post('/webhook', async (req, res) => {
             const carrito = req.body.items;
             const idVentaUnico = req.body.idVenta || "TEST-" + Date.now();
 
+            // Evitar procesamiento duplicado
+            const yaExiste = await repository.checkVentaExiste(idVentaUnico);
+            if (yaExiste) {
+                console.log(`⚠️ La venta de prueba ${idVentaUnico} ya fue procesada anteriormente.`);
+                return res.status(200).json({ success: true, message: `La venta ${idVentaUnico} ya está registrada.` });
+            }
+
             const productosMaster = await repository.read("Productos", "A:J", true);
             const ofertasMaster = await repository.read("Ofertas", "A:J", true);
             let totalVenta = 0;
@@ -227,6 +234,15 @@ app.post('/webhook', async (req, res) => {
             if (payment.status === "approved") {
                 // 2. Recuperar los datos que guardamos en external_reference
                 const dataExtra = JSON.parse(payment.external_reference);
+                const idVenta = dataExtra.idVenta;
+
+                // Evitar procesamiento duplicado
+                const yaExiste = await repository.checkVentaExiste(idVenta);
+                if (yaExiste) {
+                    console.log(`⚠️ La venta ${idVenta} ya fue procesada anteriormente. Evitando duplicación.`);
+                    return res.sendStatus(200);
+                }
+
                 const carrito = dataExtra.items;
 
                 // 3. ACTUALIZAR GOOGLE SHEETS
@@ -267,13 +283,13 @@ app.post('/webhook', async (req, res) => {
 
                 // B. Registrar venta
                 await repository.logVenta({
-                    id: dataExtra.idVenta,
+                    id: idVenta,
                     productos: nombresParaRegistro.join(", "),
                     cantidad: totalArticulos,
                     total: totalVenta
                 });
 
-                console.log(`✅ Venta ${dataExtra.idVenta} procesada con éxito.`);
+                console.log(`✅ Venta ${idVenta} procesada con éxito.`);
             }
         }
         // Mercado Pago necesita un 200 o 201 para dejar de enviar notificaciones

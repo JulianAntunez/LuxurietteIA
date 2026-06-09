@@ -189,9 +189,34 @@ async function logVenta(datos) {
   }
 }
 
+/**
+ * Verifica si un ID de venta ya existe en la hoja "Ventas"
+ */
+async function checkVentaExiste(idVenta) {
+  try {
+    const authClient = await auth.getClient();
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: spreadsheetId,
+      range: "Ventas!A:A", // Solo leemos la columna A (donde se guarda el ID de venta)
+      auth: authClient,
+    });
+
+    if (!result.data.values || result.data.values.length === 0) {
+      return false;
+    }
+
+    // Comprobar si el ID ya existe en alguna fila de la columna A
+    return result.data.values.some(row => String(row[0]) === String(idVenta));
+  } catch (error) {
+    console.error("Error en checkVentaExiste:", error.message);
+    return false;
+  }
+}
+
 module.exports = {
   read,
   write,
-  logVenta
+  logVenta,
+  checkVentaExiste
 };
 

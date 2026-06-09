@@ -64,6 +64,12 @@ A continuación se detallan las modificaciones realizadas para optimizar y asegu
   - **Recuperación Visual de Stock:** Al remover un producto del carrito, el stock local del producto en la pantalla se recupera automáticamente (`product.Stock++`) de manera visual e inmediata.
   - **Sincronización al Recargar:** Al inicializar la tienda o cambiar de página, el sistema comprueba qué elementos están agregados al carrito (guardados en `localStorage`) y descuenta de forma visual ese stock antes de renderizar la lista, evitando que el usuario agregue más unidades de las disponibles reales de forma indebida.
 
+### 16. Prevención de Ventas y Descuento de Stock Duplicados (Idempotencia)
+- **Problema:** Mercado Pago puede enviar múltiples notificaciones Webhook para un mismo pago (por reintentos o transiciones de estado), lo que provocaba que las ventas aparecieran duplicadas en la hoja "Ventas" y el stock se descontara repetidamente por error.
+- **Solución:** Se implementó una verificación de idempotencia:
+  - Se creó la función `checkVentaExiste(idVenta)` en `repository.js` para buscar el ID de la venta en la columna A de la hoja de Google Sheets.
+  - El webhook de `index.js` (tanto real como de prueba local) ahora verifica si la venta ya existe antes de procesar la lógica de actualización del stock e inserción de la venta, respondiendo inmediatamente con éxito para evitar duplicaciones.
+
 ## Futuras Consideraciones Recomendadas
 - **Base de Datos Transaccional:** Google Sheets no soporta transacciones (bloqueos de fila). Si la tienda crece y hay muchas compras simultáneas, dos personas podrían intentar comprar la misma unidad exacta al mismo tiempo y generarse inconsistencias. A futuro se recomienda migrar a una base de datos como PostgreSQL, MongoDB o MySQL.
 - **Validación Estricta con Joi:** Implementar `joi` (el cual ya está instalado en las dependencias) para validar estructuradamente el carrito de compras (`req.body`) y garantizar que los precios e IDs no puedan ser manipulados de manera maliciosa por un cliente modificado.
