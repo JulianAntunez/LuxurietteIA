@@ -70,6 +70,13 @@ A continuación se detallan las modificaciones realizadas para optimizar y asegu
   - **Bloqueo en Memoria (Concurrencia):** Se introdujo un `Set` en memoria (`processedSales` en `index.js`) que registra temporalmente los IDs de venta que se están procesando. Si llega otra petición para el mismo ID concurrentemente, se descarta de inmediato respondiendo `200 OK`. Los IDs se limpian automáticamente a los 10 minutos.
   - **Verificación en Base de Datos (Persistencia):** Mediante la función `checkVentaExiste(idVenta)` en `repository.js`, se verifica en la columna A de la hoja "Ventas" de Google Sheets que el ID no se haya guardado previamente en una ejecución anterior.
 
+### 17. Persistencia de Paginación en Catálogo de Productos
+- **Problema:** Al navegar a páginas avanzadas del catálogo (ej. página 2) y refrescar la pestaña (F5) o usar las flechas del navegador, la página se reseteaba regresando al inicio (página 1).
+- **Solución:** Se integró la paginación con el historial de navegación:
+  - Al cambiar de página, se actualiza dinámicamente el parámetro `?page=X` en la URL mediante `window.history.pushState`.
+  - Al recargar la página, se recupera el número de página actual directamente desde la URL.
+  - Se añadió soporte para `popstate` para sincronizar las vistas si el usuario usa los botones de navegación Atrás/Adelante del navegador.
+
 ## Futuras Consideraciones Recomendadas
 - **Base de Datos Transaccional:** Google Sheets no soporta transacciones (bloqueos de fila). Si la tienda crece y hay muchas compras simultáneas, dos personas podrían intentar comprar la misma unidad exacta al mismo tiempo y generarse inconsistencias. A futuro se recomienda migrar a una base de datos como PostgreSQL, MongoDB o MySQL.
 - **Validación Estricta con Joi:** Implementar `joi` (el cual ya está instalado en las dependencias) para validar estructuradamente el carrito de compras (`req.body`) y garantizar que los precios e IDs no puedan ser manipulados de manera maliciosa por un cliente modificado.

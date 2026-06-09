@@ -2,10 +2,22 @@ let productList = [];
 let allProductsMaster = [];
 let carrito = [];
 let total = 0;
-let currentPage = 1;
+const urlParams = new URLSearchParams(window.location.search);
+let currentPage = parseInt(urlParams.get('page')) || 1;
 const itemsPerPage = 24;
 const mp = new MercadoPago('APP_USR-aff751db-2be1-44d6-946e-b5d1255177a7', {
     locale: 'es-AR'
+});
+
+// Escuchar cambios de historial (botones atrás/adelante del navegador)
+window.addEventListener('popstate', (event) => {
+    if (event.state && event.state.page) {
+        currentPage = event.state.page;
+    } else {
+        const params = new URLSearchParams(window.location.search);
+        currentPage = parseInt(params.get('page')) || 1;
+    }
+    displayProducts();
 });
 
 // --- 1. FUNCIONES GLOBALES (ACCESIBLES DESDE EL HTML) ---
@@ -54,6 +66,12 @@ function changePage(page, event) {
     if (page < 1 || page > totalPages) return;
     if (event) event.preventDefault();
     currentPage = page;
+
+    // Actualizar la URL con el número de página para que persista al recargar (F5)
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    window.history.pushState({ page: page }, '', url.toString());
+
     displayProducts();
     const section = document.getElementById("page-content");
     if (section) section.scrollIntoView({ behavior: 'smooth' });
@@ -182,6 +200,10 @@ async function fetchProducts(type) {
 }
 
 function displayProducts() {
+    const totalPages = Math.ceil(productList.length / itemsPerPage);
+    if (currentPage > totalPages && totalPages > 0) {
+        currentPage = totalPages;
+    }
     const startIndex = (currentPage - 1) * itemsPerPage;
     renderProducts(productList.slice(startIndex, startIndex + itemsPerPage));
     updatePagination();
