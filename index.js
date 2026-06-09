@@ -13,6 +13,9 @@ const app = express();
 // const port = 3000;
 const port = process.env.PORT || 10000;
 
+// Set en memoria para prevenir procesamiento duplicado concurrente (race conditions)
+const processedSales = new Set();
+
 // --- MIDDLEWARES ---
 // Helmet ayuda a proteger la aplicación de vulnerabilidades web conocidas
 // Se desactiva el contentSecurityPolicy para evitar romper el frontend si usa recursos externos
@@ -162,6 +165,7 @@ app.post('/api/pay', async (req, res) => {
 app.post('/webhook', async (req, res) => {
     const { query } = req;
     const topic = query.topic || query.type;
+    let idVentaParaRemover = null;
 
     try {
         // --- BYPASS DE PRUEBA LOCAL ---
@@ -169,11 +173,20 @@ app.post('/webhook', async (req, res) => {
             console.log('🧪 Iniciando procesamiento de compra de prueba local...');
             const carrito = req.body.items;
             const idVentaUnico = req.body.idVenta || "TEST-" + Date.now();
+            idVentaParaRemover = idVentaUnico;
 
-            // Evitar procesamiento duplicado
+            // Evitar procesamiento duplicado en memoria (concurrencia)
+            if (processedSales.has(idVentaUnico)) {
+                console.log(`⚠️ [Memoria] La venta de prueba ${idVentaUnico} ya se está procesando o fue procesada.`);
+                return res.status(200).json({ success: true, message: `La venta ${idVentaUnico} ya está registrada en memoria.` });
+            }
+            processedSales.add(idVentaUnico);
+            setTimeout(() => processedSales.delete(idVentaUnico), 10 * 60 * 1000); // Expiración en 10 minutos
+
+            // Evitar procesamiento duplicado en base de datos
             const yaExiste = await repository.checkVentaExiste(idVentaUnico);
             if (yaExiste) {
-                console.log(`⚠️ La venta de prueba ${idVentaUnico} ya fue procesada anteriormente.`);
+                console.log(`⚠️ La venta de prueba ${idVentaUnico} ya fue procesada anteriormente en Sheets.`);
                 return res.status(200).json({ success: true, message: `La venta ${idVentaUnico} ya está registrada.` });
             }
 
@@ -235,11 +248,20 @@ app.post('/webhook', async (req, res) => {
                 // 2. Recuperar los datos que guardamos en external_reference
                 const dataExtra = JSON.parse(payment.external_reference);
                 const idVenta = dataExtra.idVenta;
+                idVentaParaRemover = idVenta;
 
-                // Evitar procesamiento duplicado
+                // Evitar procesamiento duplicado en memoria (concurrencia)
+                if (processedSales.has(idVenta)) {
+                    console.log(`⚠️ [Memoria] La venta ${idVenta} ya se está procesando o fue procesada. Ignorando.`);
+                    return res.sendStatus(200);
+                }
+                processedSales.add(idVenta);
+                setTimeout(() => processedSales.delete(idVenta), 10 * 60 * 1000); // Expiración en 10 minutos
+
+                // Evitar procesamiento duplicado en base de datos
                 const yaExiste = await repository.checkVentaExiste(idVenta);
                 if (yaExiste) {
-                    console.log(`⚠️ La venta ${idVenta} ya fue procesada anteriormente. Evitando duplicación.`);
+                    console.log(`⚠️ La venta ${idVenta} ya fue procesada anteriormente en Sheets. Evitando duplicación.`);
                     return res.sendStatus(200);
                 }
 
@@ -296,6 +318,9 @@ app.post('/webhook', async (req, res) => {
         res.sendStatus(200);
     } catch (error) {
         console.error("Error en el Webhook:", error);
+        if (idVentaParaRemover) {
+            processedSales.delete(idVentaParaRemover);
+        }
         res.sendStatus(500);
     }
 });
