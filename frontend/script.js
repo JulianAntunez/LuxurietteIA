@@ -361,8 +361,146 @@ function updatePagination() {
 // }
 
 
-async function pay() {
-    console.log("Iniciando proceso de pago..."); // LOG 1
+function showPaymentMethodModal() {
+    if (carrito.length === 0) return alert("Carrito vacío");
+    
+    let modal = document.getElementById("payment-method-modal");
+    if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "payment-method-modal";
+        modal.className = "payment-method-modal";
+        modal.innerHTML = `
+            <div class="payment-method-content">
+                <h2>Selecciona el Método de Pago</h2>
+                <div class="payment-options">
+                    <button id="btn-pay-mp" class="btn-payment-option mp">
+                        <span>💳 Mercado Pago</span>
+                        <small>Pago online instantáneo</small>
+                    </button>
+                    <button id="btn-pay-cash" class="btn-payment-option cash">
+                        <span>💵 Efectivo / Transferencia</span>
+                        <small>Acordar y notificar por WhatsApp</small>
+                    </button>
+                </div>
+                <button class="btn-cancel-payment" onclick="closePaymentMethodModal()">Cancelar</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Estilos integrados del modal de selección de método de pago
+        const style = document.createElement("style");
+        style.innerHTML = `
+            .payment-method-modal {
+                display: none;
+                position: fixed;
+                z-index: 2000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.85);
+                backdrop-filter: blur(10px);
+                justify-content: center;
+                align-items: center;
+            }
+            .payment-method-content {
+                background: rgba(15, 23, 42, 0.95);
+                border: 1px solid rgba(255, 0, 255, 0.3);
+                box-shadow: 0 0 30px rgba(255, 0, 255, 0.2), 0 0 50px rgba(0, 242, 254, 0.1);
+                border-radius: 20px;
+                padding: 35px;
+                width: 90%;
+                max-width: 440px;
+                text-align: center;
+                color: white;
+                position: relative;
+            }
+            .payment-method-content h2 {
+                font-family: 'Outfit', sans-serif;
+                margin-bottom: 25px;
+                font-size: 1.6rem;
+                background: linear-gradient(45deg, #00f2fe, #ff00ff);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                font-weight: bold;
+            }
+            .payment-options {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                margin-bottom: 25px;
+            }
+            .btn-payment-option {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 16px;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                cursor: pointer;
+                transition: all 0.3s ease;
+                color: white;
+            }
+            .btn-payment-option.mp {
+                background: linear-gradient(135deg, #009ee3, #007eb5);
+            }
+            .btn-payment-option.mp:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(0, 158, 227, 0.4);
+            }
+            .btn-payment-option.cash {
+                background: linear-gradient(135deg, #10b981, #059669);
+            }
+            .btn-payment-option.cash:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+            }
+            .btn-payment-option span {
+                font-size: 1.15rem;
+                font-weight: bold;
+            }
+            .btn-payment-option small {
+                font-size: 0.8rem;
+                opacity: 0.85;
+                margin-top: 5px;
+            }
+            .btn-cancel-payment {
+                background: transparent;
+                border: none;
+                color: #a0aec0;
+                cursor: pointer;
+                font-size: 0.95rem;
+                transition: color 0.3s;
+                margin-top: 10px;
+                text-decoration: underline;
+            }
+            .btn-cancel-payment:hover {
+                color: #fff;
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.getElementById("btn-pay-mp").onclick = () => {
+            closePaymentMethodModal();
+            closeModal();
+            payMercadoPago();
+        };
+        document.getElementById("btn-pay-cash").onclick = () => {
+            closePaymentMethodModal();
+            closeModal();
+            payCash();
+        };
+    }
+    modal.style.display = "flex";
+}
+
+function closePaymentMethodModal() {
+    const modal = document.getElementById("payment-method-modal");
+    if (modal) modal.style.display = "none";
+}
+
+async function payMercadoPago() {
     if (carrito.length === 0) return alert("Carrito vacío");
 
     const btn = document.getElementById("checkout-button");
@@ -377,13 +515,10 @@ async function pay() {
         });
         
         const result = await res.json();
-        console.log("Respuesta del servidor:", result); // LOG 2
 
         if (result.initPoint) {
-            console.log("Redirigiendo a Mercado Pago:", result.initPoint); // LOG 3
             window.location.href = result.initPoint;
         } else if (result.preferenceId) {
-            console.log("Abriendo Checkout con ID (fallback):", result.preferenceId); // LOG 3
             mp.checkout({
                 preferenceId: result.preferenceId,
                 autoOpen: true 
@@ -393,11 +528,53 @@ async function pay() {
         }
     } catch (e) {
         console.error("Error capturado:", e);
+        alert("Error al conectar con Mercado Pago.");
     } finally {
         btn.disabled = false;
         btn.innerText = "Pagar";
     }
 }
+
+async function payCash() {
+    if (carrito.length === 0) return alert("Carrito vacío");
+
+    const btn = document.getElementById("checkout-button");
+    btn.disabled = true;
+    btn.innerText = "Procesando...";
+
+    try {
+        const res = await fetch("/api/pay-cash", { 
+            method: 'POST', 
+            body: JSON.stringify(carrito), 
+            headers: { 'Content-Type': 'application/json' } 
+        });
+        
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || "Error");
+
+        // Formatear mensaje para WhatsApp
+        const lista = carrito.map(i => `- ${i.nombre} x${i.quantity}`).join('%0A');
+        const mensaje = `¡Hola *Luxuriette*! Acabo de realizar un pedido.%0A*ID de Pedido:* ${result.idVenta}%0A*Método de Pago:* Efectivo / Transferencia%0A*Detalle:*%0A${lista}%0A*Total:* $${result.total.toFixed(2)}%0A_Coordinemos el pago y entrega._`;
+
+        // Limpiar el carrito
+        carrito = []; 
+        total = 0; 
+        saveCart(); 
+        updateCartDisplay();
+
+        // Abrir WhatsApp en pestaña nueva
+        window.open(`https://wa.me/5493757677266?text=${mensaje}`, '_blank');
+        
+        alert(`¡Pedido en efectivo registrado! ID: ${result.idVenta}. Serás redirigido a WhatsApp para coordinar.`);
+        location.reload();
+    } catch (e) {
+        alert("Error al procesar: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "Pagar";
+    }
+}
+
 // --- 5. INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
    
@@ -447,10 +624,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Vinculamos el botón de pago
     document.addEventListener("click", (e) => {
-    if (e.target && e.target.id === "checkout-button") {
-        pay();
-    }
-});
+        if (e.target && e.target.id === "checkout-button") {
+            showPaymentMethodModal();
+        }
+    });
     // 4. Lógica de Apertura del Carrito
     const cartIcon = document.getElementById("cart-icon");
     if (cartIcon) {

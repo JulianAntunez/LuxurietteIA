@@ -161,6 +161,102 @@ app.post('/api/pay', async (req, res) => {
     }
 });
 
+// --- RUTA DE PAGO EN EFECTIVO ---
+app.post('/api/pay-cash', async (req, res) => {
+    try {
+        const carrito = req.body;
+
+        if (!Array.isArray(carrito) || carrito.length === 0) {
+            return res.status(400).json({ error: 'El carrito está vacío' });
+        }
+
+        // 1. VALIDACIÓN DE STOCK
+        const cantidadPorProducto = {};
+        carrito.forEach(item => {
+            const id = item.id;
+            const qty = item.quantity || 1;
+            cantidadPorProducto[id] = (cantidadPorProducto[id] || 0) + qty;
+        });
+
+        // Forzamos la lectura (sin caché) para tener el stock más reciente
+        const productosMaster = await repository.read("Productos", "A:J", true);
+        const ofertasMaster = await repository.read("Ofertas", "A:J", true);
+        const catalogoTotal = [...productosMaster, ...ofertasMaster];
+        const faltantes = [];
+
+        for (const id in cantidadPorProducto) {
+            const producto = catalogoTotal.find(p => String(p.Id) === String(id) || String(p.OriginalId) === String(id));
+            if (!producto) {
+                faltantes.push({ id, motivo: 'Producto no existe' });
+            } else if (Number(producto.Stock) < cantidadPorProducto[id]) {
+                faltantes.push({
+                    id,
+                    producto: producto.Producto,
+                    disponible: producto.Stock,
+                    solicitado: cantidadPorProducto[id]
+                });
+            }
+        }
+
+        if (faltantes.length > 0) {
+            return res.status(409).json({ error: 'Stock insuficiente', detalles: faltantes });
+        }
+
+        // 2. REGISTRAR VENTA Y DESCONTAR STOCK (Efectivo es inmediato)
+        const idVentaUnico = "EF-" + Date.now();
+        let totalVenta = 0;
+        let nombresParaRegistro = [];
+        let totalArticulos = 0;
+
+        const productosActualizados = productosMaster.map(p => {
+            const itemComprado = carrito.find(i => String(i.id) === String(p.Id) || String(i.id) === String(p.OriginalId));
+            if (itemComprado) {
+                const qty = itemComprado.quantity || 1;
+                totalVenta += (Number(itemComprado.price) * qty);
+                totalArticulos += qty;
+                nombresParaRegistro.push(`(${p.Id}) ${p.Producto} (x${qty})`);
+                return { ...p, Stock: Number(p.Stock) - qty };
+            }
+            return p;
+        });
+
+        const ofertasActualizadas = ofertasMaster.map(p => {
+            const itemComprado = carrito.find(i => String(i.id) === String(p.Id) || String(i.id) === String(p.OriginalId));
+            if (itemComprado) {
+                const qty = itemComprado.quantity || 1;
+                totalVenta += (Number(itemComprado.price) * qty);
+                totalArticulos += qty;
+                nombresParaRegistro.push(`(${p.Id}) ${p.Producto} [Oferta] (x${qty})`);
+                return { ...p, Stock: Number(p.Stock) - qty };
+            }
+            return p;
+        });
+
+        // A. Escribir stock en ambas hojas
+        await repository.write(productosActualizados, "Productos");
+        await repository.write(ofertasActualizadas, "Ofertas");
+
+        // B. Registrar venta con metodoPago "Efectivo"
+        await repository.logVenta({
+            id: idVentaUnico,
+            productos: nombresParaRegistro.join(", "),
+            cantidad: totalArticulos,
+            metodoPago: "Efectivo",
+            total: totalVenta
+        });
+
+        res.status(200).json({
+            success: true,
+            idVenta: idVentaUnico,
+            total: totalVenta
+        });
+
+    } catch (error) {
+        console.error('Error en pago en efectivo:', error);
+        res.status(500).json({ error: 'Fallo en el servidor al procesar el pago en efectivo: ' + error.message });
+    }
+});
+
 // Ruta para recibir la confirmación de pago de Mercado Pago
 app.post('/webhook', async (req, res) => {
     const { query } = req;

@@ -169,7 +169,7 @@ async function logVenta(datos) {
       new Date().toLocaleString('es-AR'), 
       datos.productos,
       datos.cantidad,
-      "Mercado Pago",
+      datos.metodoPago || "Mercado Pago",
       datos.total
     ]];
 

@@ -81,6 +81,13 @@ A continuación se detallan las modificaciones realizadas para optimizar y asegu
 - **Problema:** Los productos agotados en Google Sheets (Stock <= 0) seguían mostrándose en la tienda, ocupando espacio visual con un botón deshabilitado que impedía su compra.
 - **Solución:** Se añadió un filtro dinámico en `fetchProducts` (`script.js`) para excluir de la lista principal a todos los productos cuyo stock de base de datos sea menor o igual a 0.
 
+### 19. Sistema de Pago Híbrido (Mercado Pago o Efectivo/Transferencia)
+- **Problema:** La compra enviaba de forma obligatoria al checkout de Mercado Pago, imposibilitando los pagos en efectivo o transferencias manuales, ni permitía enviar los detalles de este tipo de pedidos por WhatsApp.
+- **Solución:**
+  - **Modal de Selección Dinámico:** Al hacer clic en "Pagar" en el carrito, se abre un modal premium integrado en el frontend (diseñado en armonía con la estética violeta/cian de Luxuriette) que le pregunta al usuario si desea abonar con **Mercado Pago** o **Efectivo/Transferencia**.
+  - **Pago con Mercado Pago:** Mantiene el flujo original automatizado. Al concretar la venta de forma exitosa y redirigir a `success.html`, el botón de confirmación de WhatsApp ahora indica claramente que el método fue *Mercado Pago* con su respectivo ID de transacción.
+  - **Pago en Efectivo / Transferencia:** Se creó el endpoint `/api/pay-cash` en `index.js` que descuenta el stock de las hojas y registra la venta en Google Sheets bajo el método "Efectivo". Acto seguido, el frontend limpia el carrito y redirige automáticamente al usuario a WhatsApp con el mensaje estructurado que detalla los productos, ID de compra (`EF-...`) y total a pagar.
+
 ## Futuras Consideraciones Recomendadas
 - **Base de Datos Transaccional:** Google Sheets no soporta transacciones (bloqueos de fila). Si la tienda crece y hay muchas compras simultáneas, dos personas podrían intentar comprar la misma unidad exacta al mismo tiempo y generarse inconsistencias. A futuro se recomienda migrar a una base de datos como PostgreSQL, MongoDB o MySQL.
 - **Validación Estricta con Joi:** Implementar `joi` (el cual ya está instalado en las dependencias) para validar estructuradamente el carrito de compras (`req.body`) y garantizar que los precios e IDs no puedan ser manipulados de manera maliciosa por un cliente modificado.
