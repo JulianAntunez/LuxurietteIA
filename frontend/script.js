@@ -222,12 +222,15 @@ function searchProducts() {
         (p.Descripcion?.toLowerCase() || "").includes(term)
     );
 
+    const container = document.getElementById("page-content");
+    const pagContainer = document.getElementById("pagination");
+    
     if (filtered.length === 0) {
-        document.getElementById("page-content").innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: white; padding: 50px;"><h3>No se encontró "${term}"</h3><button class="button-add" onclick="resetSearch()">Ver todos</button></div>`;
-        document.getElementById("pagination").innerHTML = "";
+        if (container) container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: white; padding: 50px;"><h3>No se encontró "${term}"</h3><button class="button-add" onclick="resetSearch()">Ver todos</button></div>`;
+        if (pagContainer) pagContainer.innerHTML = "";
     } else {
         renderProducts(filtered);
-        document.getElementById("pagination").innerHTML = "";
+        if (pagContainer) pagContainer.innerHTML = "";
     }
 }
 function toggleSearch() {
@@ -280,18 +283,24 @@ function renderProducts(lista) {
                 </div>
             </div>`;
     });
-    document.getElementById("page-content").innerHTML = html;
+    const container = document.getElementById("page-content");
+    if (container) {
+        container.innerHTML = html;
+    }
 }
 
 function updatePagination() {
     const totalPages = Math.ceil(productList.length / itemsPerPage);
-    if (totalPages <= 1) { document.getElementById("pagination").innerHTML = ''; return; }
+    const pagContainer = document.getElementById("pagination");
+    if (!pagContainer) return;
+
+    if (totalPages <= 1) { pagContainer.innerHTML = ''; return; }
     let html = `<button class="page-link-custom" onclick="changePage(${currentPage - 1}, event)">&laquo;</button>`;
     for (let i = 1; i <= totalPages; i++) {
         html += `<button class="page-link-custom ${i === currentPage ? 'active' : ''}" onclick="changePage(${i}, event)">${i}</button>`;
     }
     html += `<button class="page-link-custom" onclick="changePage(${currentPage + 1}, event)">&raquo;</button>`;
-    document.getElementById("pagination").innerHTML = html;
+    pagContainer.innerHTML = html;
 }
 
 // --- 4. PAGO POR WHATSAPP ---
