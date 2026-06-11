@@ -65,7 +65,7 @@
                     if (cartStr) {
                         const carrito = JSON.parse(cartStr);
                         lista = carrito.map(i => `- ${i.nombre} x${i.quantity}`).join('%0A');
-                        total = carrito.reduce((sum, item) => sum + (item.precio * item.quantity), 0);
+                        total = carrito.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                     }
                 } catch (e) { console.error("Error carrito", e); }
 
