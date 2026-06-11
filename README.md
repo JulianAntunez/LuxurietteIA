@@ -88,6 +88,14 @@ A continuación se detallan las modificaciones realizadas para optimizar y asegu
   - **Pago con Mercado Pago:** Mantiene el flujo original automatizado. Al concretar la venta de forma exitosa y redirigir a `success.html`, el botón de confirmación de WhatsApp ahora indica claramente que el método fue *Mercado Pago* con su respectivo ID de transacción.
   - **Pago en Efectivo / Transferencia:** Se creó el endpoint `/api/pay-cash` en `index.js` que descuenta el stock de las hojas y registra la venta en Google Sheets bajo el método "Efectivo". Acto seguido, el frontend limpia el carrito y redirige automáticamente al usuario a WhatsApp con el mensaje estructurado que detalla los productos, ID de compra (`EF-...`) y total a pagar.
 
+### 20. Descuento de Stock Dinámico por Categorías (Prefijos de ID)
+- **Problema:** Se requería leer todo el catálogo unificado desde la hoja "Productos", pero al momento de concretar una venta, el stock debía descontarse de las hojas individuales de origen ("General", "Juguetes", "Ropa") sin mezclar los inventarios.
+- **Solución:** Se implementó una lógica de distribución en los endpoints `/api/pay`, `/api/pay-cash` y en el `/webhook`. El servidor escanea el carrito e identifica a qué hoja pertenece cada producto según el prefijo de su ID (`101-` para General, `201-` para Juguetes, `301-` para Ropa y `O-` para Ofertas). Luego, descuenta dinámicamente las cantidades de sus respectivas hojas, manteniendo el catálogo central y los inventarios individuales sincronizados automáticamente.
+
+### 21. Mejoras de UI: Navegación Consistente
+- **Problema:** El indicador visual ("active") del menú de navegación no se movía correctamente al cambiar de página, y el botón de "Ofertas" no estaba posicionado uniformemente en todas las vistas.
+- **Solución:** Se reorganizó el código HTML en el navbar para asegurar que "Ofertas" siempre se encuentre al final del menú y se corrigió la funcionalidad para iluminar (clase "active") correctamente la pestaña correspondiente a la página en la que se encuentra el usuario.
+
 ## Futuras Consideraciones Recomendadas
 - **Base de Datos Transaccional:** Google Sheets no soporta transacciones (bloqueos de fila). Si la tienda crece y hay muchas compras simultáneas, dos personas podrían intentar comprar la misma unidad exacta al mismo tiempo y generarse inconsistencias. A futuro se recomienda migrar a una base de datos como PostgreSQL, MongoDB o MySQL.
 - **Validación Estricta con Joi:** Implementar `joi` (el cual ya está instalado en las dependencias) para validar estructuradamente el carrito de compras (`req.body`) y garantizar que los precios e IDs no puedan ser manipulados de manera maliciosa por un cliente modificado.
