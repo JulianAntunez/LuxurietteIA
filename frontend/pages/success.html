@@ -73,13 +73,16 @@
 
                 // 3. Configurar el botón de WhatsApp
                 const wsButton = document.getElementById('whatsapp-confirm');
+                let orderId = localStorage.getItem("lastOrderId") || paymentId;
+                
                 let mensaje = "";
                 if (lista) {
-                    mensaje = `¡Hola *Luxuriette*! Acabo de realizar un pedido.%0A*ID de Pedido:* ${paymentId}%0A*Método de Pago:* Mercado Pago%0A*Detalle:*%0A${lista}%0A*Total:* $${total.toFixed(2)}%0A_Aviso de pago realizado exitosamente._`;
+                    mensaje = `¡Hola *Luxuriette*! Acabo de realizar un pedido.%0A*ID de Pedido:* ${orderId}%0A*Método de Pago:* Mercado Pago%0A*Detalle:*%0A${lista}%0A*Total:* $${total.toFixed(2)}%0A_Aviso de pago realizado exitosamente._`;
                 } else {
-                    mensaje = encodeURIComponent(`¡Hola *Luxuriette*! Acabo de realizar un pago en el sitio. ID de operación: ${paymentId}.`);
+                    mensaje = encodeURIComponent(`¡Hola *Luxuriette*! Acabo de realizar un pago en el sitio. ID de operación: ${orderId}.`);
                 }
                 
+                localStorage.removeItem("lastOrderId"); // Limpiar para futuros pagos
                 wsButton.href = `https://wa.me/5493757677266?text=${mensaje}`;
             }
         });

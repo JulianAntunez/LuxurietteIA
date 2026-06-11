@@ -513,8 +513,10 @@ async function payMercadoPago() {
         const result = await res.json();
 
         if (result.initPoint) {
+            localStorage.setItem("lastOrderId", result.idVenta);
             window.location.href = result.initPoint;
         } else if (result.preferenceId) {
+            localStorage.setItem("lastOrderId", result.idVenta);
             window.location.href = `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=${result.preferenceId}`;
         } else {
             alert("El servidor no devolvió un link de pago.");
