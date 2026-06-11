@@ -598,10 +598,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Al hacer clic en "No, soy menor"
-  document.getElementById('btnMenor').addEventListener('click', function() {
-    // Redirige a una página segura (ej. Google o una página informativa)
-    window.location.href = 'https://www.google.com'; // Cambia por la URL deseada
-  });
+  const btnMenor = document.getElementById('btnMenor');
+  if (btnMenor) {
+    btnMenor.addEventListener('click', function() {
+      // Redirige a una página segura (ej. Google o una página informativa)
+      window.location.href = 'https://www.google.com'; // Cambia por la URL deseada
+    });
+  }
 
     // 2. Carga Dinámica de Productos
     const container = document.getElementById("page-content");

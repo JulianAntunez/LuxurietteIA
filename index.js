@@ -84,14 +84,32 @@ app.post('/api/pay', async (req, res) => {
             cantidadPorProducto[id] = (cantidadPorProducto[id] || 0) + qty;
         });
 
-        // Forzamos la lectura (sin caché) para tener el stock más reciente antes del pago
-        const productosMaster = await repository.read("Productos", "A:J", true);
-        const ofertasMaster = await repository.read("Ofertas", "A:J", true);
-        const catalogoTotal = [...productosMaster, ...ofertasMaster];
+        // Forzamos la lectura (sin caché) dinámicamente de las hojas necesarias
+        const sheetsToRead = new Set();
+        let hasOfertas = false;
+        carrito.forEach(item => {
+            const id = String(item.id);
+            if (id.startsWith("O-")) hasOfertas = true;
+            else if (id.startsWith("101-")) sheetsToRead.add("General");
+            else if (id.startsWith("201-")) sheetsToRead.add("Juguetes");
+            else if (id.startsWith("301-")) sheetsToRead.add("Ropa");
+            else sheetsToRead.add("Productos"); // Fallback para productos sin nuevo prefijo
+        });
+
+        let catalogoTotal = [];
+        for (const sheet of sheetsToRead) {
+            const data = await repository.read(sheet, "A:J", true);
+            catalogoTotal = catalogoTotal.concat(data);
+        }
+        if (hasOfertas) {
+            const ofertasMaster = await repository.read("Ofertas", "A:J", true);
+            catalogoTotal = catalogoTotal.concat(ofertasMaster);
+        }
+        
         const faltantes = [];
 
         for (const id in cantidadPorProducto) {
-            const producto = catalogoTotal.find(p => String(p.Id) === String(id) || String(p.OriginalId) === String(id));
+            const producto = catalogoTotal.find(p => String(p.Id) === String(id));
             if (!producto) {
                 faltantes.push({ id, motivo: 'Producto no existe' });
             } else if (Number(producto.Stock) < cantidadPorProducto[id]) {
@@ -178,14 +196,32 @@ app.post('/api/pay-cash', async (req, res) => {
             cantidadPorProducto[id] = (cantidadPorProducto[id] || 0) + qty;
         });
 
-        // Forzamos la lectura (sin caché) para tener el stock más reciente
-        const productosMaster = await repository.read("Productos", "A:J", true);
-        const ofertasMaster = await repository.read("Ofertas", "A:J", true);
-        const catalogoTotal = [...productosMaster, ...ofertasMaster];
+        // Forzamos la lectura (sin caché) dinámicamente de las hojas necesarias
+        const sheetsToRead = new Set();
+        let hasOfertas = false;
+        carrito.forEach(item => {
+            const id = String(item.id);
+            if (id.startsWith("O-")) hasOfertas = true;
+            else if (id.startsWith("101-")) sheetsToRead.add("General");
+            else if (id.startsWith("201-")) sheetsToRead.add("Juguetes");
+            else if (id.startsWith("301-")) sheetsToRead.add("Ropa");
+            else sheetsToRead.add("Productos");
+        });
+
+        let catalogoTotal = [];
+        for (const sheet of sheetsToRead) {
+            const data = await repository.read(sheet, "A:J", true);
+            catalogoTotal = catalogoTotal.concat(data);
+        }
+        if (hasOfertas) {
+            const ofertasMaster = await repository.read("Ofertas", "A:J", true);
+            catalogoTotal = catalogoTotal.concat(ofertasMaster);
+        }
+
         const faltantes = [];
 
         for (const id in cantidadPorProducto) {
-            const producto = catalogoTotal.find(p => String(p.Id) === String(id) || String(p.OriginalId) === String(id));
+            const producto = catalogoTotal.find(p => String(p.Id) === String(id));
             if (!producto) {
                 faltantes.push({ id, motivo: 'Producto no existe' });
             } else if (Number(producto.Stock) < cantidadPorProducto[id]) {
@@ -208,33 +244,38 @@ app.post('/api/pay-cash', async (req, res) => {
         let nombresParaRegistro = [];
         let totalArticulos = 0;
 
-        const productosActualizados = productosMaster.map(p => {
-            const itemComprado = carrito.find(i => String(i.id) === String(p.Id) || String(i.id) === String(p.OriginalId));
-            if (itemComprado) {
-                const qty = itemComprado.quantity || 1;
-                totalVenta += (Number(itemComprado.price) * qty);
-                totalArticulos += qty;
-                nombresParaRegistro.push(`(${p.Id}) ${p.Producto} (x${qty})`);
-                return { ...p, Stock: Number(p.Stock) - qty };
-            }
-            return p;
-        });
+        // Procesar y descontar stock por cada hoja necesaria
+        for (const sheet of sheetsToRead) {
+            const sheetMaster = catalogoTotal.filter(p => p.SheetOrigin === sheet); // Usamos los datos ya leídos en catalogoTotal
+            const sheetActualizado = sheetMaster.map(p => {
+                const itemComprado = carrito.find(i => String(i.id) === String(p.Id));
+                if (itemComprado) {
+                    const qty = itemComprado.quantity || 1;
+                    totalVenta += (Number(itemComprado.price) * qty);
+                    totalArticulos += qty;
+                    nombresParaRegistro.push(`(${p.Id}) ${p.Producto} (x${qty})`);
+                    return { ...p, Stock: Number(p.Stock) - qty };
+                }
+                return p;
+            });
+            await repository.write(sheetActualizado, sheet);
+        }
 
-        const ofertasActualizadas = ofertasMaster.map(p => {
-            const itemComprado = carrito.find(i => String(i.id) === String(p.Id) || String(i.id) === String(p.OriginalId));
-            if (itemComprado) {
-                const qty = itemComprado.quantity || 1;
-                totalVenta += (Number(itemComprado.price) * qty);
-                totalArticulos += qty;
-                nombresParaRegistro.push(`(${p.Id}) ${p.Producto} [Oferta] (x${qty})`);
-                return { ...p, Stock: Number(p.Stock) - qty };
-            }
-            return p;
-        });
-
-        // A. Escribir stock en ambas hojas
-        await repository.write(productosActualizados, "Productos");
-        await repository.write(ofertasActualizadas, "Ofertas");
+        if (hasOfertas) {
+            const ofertasMaster = catalogoTotal.filter(p => p.SheetOrigin === "Ofertas");
+            const ofertasActualizadas = ofertasMaster.map(p => {
+                const itemComprado = carrito.find(i => String(i.id) === String(p.Id));
+                if (itemComprado) {
+                    const qty = itemComprado.quantity || 1;
+                    totalVenta += (Number(itemComprado.price) * qty);
+                    totalArticulos += qty;
+                    nombresParaRegistro.push(`(${p.Id}) ${p.Producto} [Oferta] (x${qty})`);
+                    return { ...p, Stock: Number(p.Stock) - qty };
+                }
+                return p;
+            });
+            await repository.write(ofertasActualizadas, "Ofertas");
+        }
 
         // B. Registrar venta con metodoPago "Efectivo"
         await repository.logVenta({
@@ -286,38 +327,52 @@ app.post('/webhook', async (req, res) => {
                 return res.status(200).json({ success: true, message: `La venta ${idVentaUnico} ya está registrada.` });
             }
 
-            const productosMaster = await repository.read("Productos", "A:J", true);
-            const ofertasMaster = await repository.read("Ofertas", "A:J", true);
+            const sheetsToRead = new Set();
+            let hasOfertas = false;
+            carrito.forEach(item => {
+                const id = String(item.id);
+                if (id.startsWith("O-")) hasOfertas = true;
+                else if (id.startsWith("101-")) sheetsToRead.add("General");
+                else if (id.startsWith("201-")) sheetsToRead.add("Juguetes");
+                else if (id.startsWith("301-")) sheetsToRead.add("Ropa");
+                else sheetsToRead.add("Productos");
+            });
+
             let totalVenta = 0;
             let nombresParaRegistro = [];
             let totalArticulos = 0;
 
-            const productosActualizados = productosMaster.map(p => {
-                const itemComprado = carrito.find(i => String(i.id) === String(p.Id) || String(i.id) === String(p.OriginalId));
-                if (itemComprado) {
-                    const qty = itemComprado.quantity || 1;
-                    totalVenta += (Number(itemComprado.price) * qty);
-                    totalArticulos += qty;
-                    nombresParaRegistro.push(`(${p.Id}) ${p.Producto} (x${qty})`);
-                    return { ...p, Stock: Number(p.Stock) - qty };
-                }
-                return p;
-            });
+            for (const sheet of sheetsToRead) {
+                const sheetMaster = await repository.read(sheet, "A:J", true);
+                const sheetActualizado = sheetMaster.map(p => {
+                    const itemComprado = carrito.find(i => String(i.id) === String(p.Id));
+                    if (itemComprado) {
+                        const qty = itemComprado.quantity || 1;
+                        totalVenta += (Number(itemComprado.price) * qty);
+                        totalArticulos += qty;
+                        nombresParaRegistro.push(`(${p.Id}) ${p.Producto} (x${qty})`);
+                        return { ...p, Stock: Number(p.Stock) - qty };
+                    }
+                    return p;
+                });
+                await repository.write(sheetActualizado, sheet);
+            }
 
-            const ofertasActualizadas = ofertasMaster.map(p => {
-                const itemComprado = carrito.find(i => String(i.id) === String(p.Id) || String(i.id) === String(p.OriginalId));
-                if (itemComprado) {
-                    const qty = itemComprado.quantity || 1;
-                    totalVenta += (Number(itemComprado.price) * qty);
-                    totalArticulos += qty;
-                    nombresParaRegistro.push(`(${p.Id}) ${p.Producto} [Oferta] (x${qty})`);
-                    return { ...p, Stock: Number(p.Stock) - qty };
-                }
-                return p;
-            });
-
-            await repository.write(productosActualizados, "Productos");
-            await repository.write(ofertasActualizadas, "Ofertas");
+            if (hasOfertas) {
+                const ofertasMaster = await repository.read("Ofertas", "A:J", true);
+                const ofertasActualizadas = ofertasMaster.map(p => {
+                    const itemComprado = carrito.find(i => String(i.id) === String(p.Id));
+                    if (itemComprado) {
+                        const qty = itemComprado.quantity || 1;
+                        totalVenta += (Number(itemComprado.price) * qty);
+                        totalArticulos += qty;
+                        nombresParaRegistro.push(`(${p.Id}) ${p.Producto} [Oferta] (x${qty})`);
+                        return { ...p, Stock: Number(p.Stock) - qty };
+                    }
+                    return p;
+                });
+                await repository.write(ofertasActualizadas, "Ofertas");
+            }
 
             await repository.logVenta({
                 id: idVentaUnico,
@@ -364,40 +419,52 @@ app.post('/webhook', async (req, res) => {
                 const carrito = dataExtra.items;
 
                 // 3. ACTUALIZAR GOOGLE SHEETS
-                const productosMaster = await repository.read("Productos", "A:J", true);
-                const ofertasMaster = await repository.read("Ofertas", "A:J", true);
+                const sheetsToRead = new Set();
+                let hasOfertas = false;
+                carrito.forEach(item => {
+                    const id = String(item.id);
+                    if (id.startsWith("O-")) hasOfertas = true;
+                    else if (id.startsWith("101-")) sheetsToRead.add("General");
+                    else if (id.startsWith("201-")) sheetsToRead.add("Juguetes");
+                    else if (id.startsWith("301-")) sheetsToRead.add("Ropa");
+                    else sheetsToRead.add("Productos");
+                });
+
                 let totalVenta = 0;
                 let nombresParaRegistro = [];
                 let totalArticulos = 0;
 
-                // Separar productos actualizados por hoja
-                const productosActualizados = productosMaster.map(p => {
-                    const itemComprado = carrito.find(i => String(i.id) === String(p.Id) || String(i.id) === String(p.OriginalId));
-                    if (itemComprado) {
-                        const qty = itemComprado.quantity || 1;
-                        totalVenta += (Number(itemComprado.price) * qty); // Precio final cobrado
-                        totalArticulos += qty;
-                        nombresParaRegistro.push(`(${p.Id}) ${p.Producto} (x${qty})`);
-                        return { ...p, Stock: Number(p.Stock) - qty };
-                    }
-                    return p;
-                });
+                for (const sheet of sheetsToRead) {
+                    const sheetMaster = await repository.read(sheet, "A:J", true);
+                    const sheetActualizado = sheetMaster.map(p => {
+                        const itemComprado = carrito.find(i => String(i.id) === String(p.Id));
+                        if (itemComprado) {
+                            const qty = itemComprado.quantity || 1;
+                            totalVenta += (Number(itemComprado.price) * qty);
+                            totalArticulos += qty;
+                            nombresParaRegistro.push(`(${p.Id}) ${p.Producto} (x${qty})`);
+                            return { ...p, Stock: Number(p.Stock) - qty };
+                        }
+                        return p;
+                    });
+                    await repository.write(sheetActualizado, sheet);
+                }
 
-                const ofertasActualizadas = ofertasMaster.map(p => {
-                    const itemComprado = carrito.find(i => String(i.id) === String(p.Id) || String(i.id) === String(p.OriginalId));
-                    if (itemComprado) {
-                        const qty = itemComprado.quantity || 1;
-                        totalVenta += (Number(itemComprado.price) * qty); // Precio final cobrado
-                        totalArticulos += qty;
-                        nombresParaRegistro.push(`(${p.Id}) ${p.Producto} [Oferta] (x${qty})`);
-                        return { ...p, Stock: Number(p.Stock) - qty };
-                    }
-                    return p;
-                });
-
-                // A. Escribir stock en ambas hojas
-                await repository.write(productosActualizados, "Productos");
-                await repository.write(ofertasActualizadas, "Ofertas");
+                if (hasOfertas) {
+                    const ofertasMaster = await repository.read("Ofertas", "A:J", true);
+                    const ofertasActualizadas = ofertasMaster.map(p => {
+                        const itemComprado = carrito.find(i => String(i.id) === String(p.Id));
+                        if (itemComprado) {
+                            const qty = itemComprado.quantity || 1;
+                            totalVenta += (Number(itemComprado.price) * qty);
+                            totalArticulos += qty;
+                            nombresParaRegistro.push(`(${p.Id}) ${p.Producto} [Oferta] (x${qty})`);
+                            return { ...p, Stock: Number(p.Stock) - qty };
+                        }
+                        return p;
+                    });
+                    await repository.write(ofertasActualizadas, "Ofertas");
+                }
 
                 // B. Registrar venta
                 await repository.logVenta({
