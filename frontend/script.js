@@ -5,9 +5,7 @@ let total = 0;
 const urlParams = new URLSearchParams(window.location.search);
 let currentPage = parseInt(urlParams.get('page')) || 1;
 const itemsPerPage = 24;
-const mp = new MercadoPago('APP_USR-aff751db-2be1-44d6-946e-b5d1255177a7', {
-    locale: 'es-AR'
-});
+
 
 // Escuchar cambios de historial (botones atrás/adelante del navegador)
 window.addEventListener('popstate', (event) => {
@@ -319,9 +317,7 @@ function updatePagination() {
 // }
 
 // Inicializar Mercado Pago (Usa tu Public Key de prueba primero)
-// const mp = new MercadoPago('TU_PUBLIC_KEY_AQUI', {
-//     locale: 'es-AR'
-// });
+// 
 
 // async function pay() {
 //     if (carrito.length === 0) return alert("Carrito vacío");
@@ -519,10 +515,7 @@ async function payMercadoPago() {
         if (result.initPoint) {
             window.location.href = result.initPoint;
         } else if (result.preferenceId) {
-            mp.checkout({
-                preferenceId: result.preferenceId,
-                autoOpen: true 
-            });
+            window.location.href = `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=${result.preferenceId}`;
         } else {
             alert("El servidor no devolvió un link de pago.");
         }
